@@ -71,15 +71,26 @@ jobs:
           pip install -r requirements/local.txt
           pip install pytest pytest-django
 
-      - name: Install Postgres and Redis client tools
+      - name: Install Postgres client tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client redis-tools
+          sudo apt-get install -y postgresql-client
 
       - name: Wait for Postgres and Redis
         run: |
           until pg_isready -h localhost -p 5432 -U isologai; do sleep 1; done
-          until redis-cli -h localhost -p 6379 ping; do sleep 1; done
+          python -c "
+          import redis, time
+          for _ in range(30):
+              try:
+                  redis.Redis(host='localhost', port=6379).ping()
+                  print('Redis is ready')
+                  break
+              except redis.exceptions.ConnectionError:
+                  time.sleep(1)
+          else:
+              raise SystemExit('Redis did not become ready in time')
+          "
 
       - name: Run migrations
         run: python manage.py migrate --noinput
