@@ -1,0 +1,1 @@
+# Logs tests initialization

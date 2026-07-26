@@ -1,0 +1,1 @@
+# Anomalies tests initialization

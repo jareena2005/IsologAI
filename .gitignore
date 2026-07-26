@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+docker/.env
+# Django files
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Celery files
+celerybeat-schedule
+celerybeat.pid
+
+# Testing and IDEs
+.pytest_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+
+# Saved ML models (Isolation Forest artifacts)
+apps/detection/ml/saved_models/*.joblib
+!apps/detection/ml/saved_models/.gitkeep
+
+myreference.txt

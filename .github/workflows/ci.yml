@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: isologai
+          POSTGRES_PASSWORD: isologai
+          POSTGRES_DB: isologai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U isologai"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DEBUG: "False"
+      SECRET_KEY: ci-test-secret-key
+      DATABASE_URL: postgres://isologai:isologai@localhost:5432/isologai
+      REDIS_URL: redis://localhost:6379/1
+      REDIS_STREAM_NAME: log-stream
+      REDIS_STREAM_GROUP: detection-group
+      REDIS_STREAM_CONSUMER: ci-consumer
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
+      ALLOWED_HOSTS: "*"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/**/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/local.txt
+          pip install pytest pytest-django
+
+      - name: Wait for Postgres and Redis
+        run: |
+          until pg_isready -h localhost -p 5432 -U isologai; do sleep 1; done
+          until redis-cli -h localhost -p 6379 ping; do sleep 1; done
+
+      - name: Run migrations
+        run: python manage.py migrate --noinput
+
+      - name: Run test suite
+        run: pytest -v
