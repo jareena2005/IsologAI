@@ -1,11 +1,16 @@
 import logging
-import json
+import time
 import redis
 from django.conf import settings
 from apps.logs.models import LogEntry
 from apps.anomalies.models import Anomaly
 from .feature_extraction import extract_features_dict
 from .model_manager import ModelManager
+from .metrics import (
+    anomalies_detected_total,
+    logs_scored_total,
+    scoring_latency_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +53,12 @@ def process_stream_messages(limit=100):
                 if not hasattr(log_entry, 'anomaly'):
                     # Extract features and query singleton model manager
                     features = extract_features_dict(data)
+                    start_time = time.perf_counter()
                     score, is_anomaly = manager.score_log(features)
+                    scoring_latency_seconds.observe(time.perf_counter() - start_time)
+                    logs_scored_total.inc()
+                    if is_anomaly:
+                        anomalies_detected_total.inc()
                     
                     Anomaly.objects.create(
                         log_entry=log_entry,

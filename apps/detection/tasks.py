@@ -5,7 +5,9 @@ from apps.logs.models import LogEntry
 from apps.anomalies.models import Anomaly
 from .feature_extraction import extract_features_model
 from .model_manager import ModelManager
+from .metrics import consumer_lag
 import numpy as np
+import redis
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +63,40 @@ def retrain_model(contamination=0.05):
         logger.error(f"Error training model: {e}")
         return f"Error training model: {str(e)}"
 
+def update_consumer_lag():
+    """Refresh the consumer lag gauge from Redis stream pending messages."""
+    client = redis.Redis.from_url(settings.REDIS_URL)
+    stream_name = settings.REDIS_STREAM_NAME
+    group_name = settings.REDIS_STREAM_GROUP
+
+    try:
+        pending_info = client.xpending(stream_name, group_name)
+        pending_count = None
+
+        if hasattr(pending_info, 'pending'):
+            pending_count = pending_info.pending
+        elif isinstance(pending_info, dict):
+            pending_count = pending_info.get('pending')
+
+        if pending_count is None:
+            for group in client.xinfo_groups(stream_name):
+                group_name_value = group.get('name') if isinstance(group, dict) else None
+                if group_name_value in (group_name, group_name.encode('utf-8')):
+                    pending_count = group.get('pending', 0)
+                    break
+
+        consumer_lag.set(int(pending_count or 0))
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.warning("Unable to refresh consumer lag: %s", exc)
+        consumer_lag.set(0)
+
+
 @shared_task
 def consume_stream():
     """
     Task to execute stream processing as a periodic Celery worker execution.
     """
     from .consumers import process_stream_messages
+    update_consumer_lag()
     count = process_stream_messages(limit=100)
     return f"Processed {count} messages from stream."

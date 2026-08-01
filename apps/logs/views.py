@@ -8,6 +8,7 @@ from celery import current_app
 import redis
 from .models import LogEntry
 from .serializers import LogEntrySerializer
+from apps.detection.metrics import logs_ingested_total
 
 
 @api_view(['GET'])
@@ -68,6 +69,9 @@ class LogEntryViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+
+        log_entry = serializer.instance
+        logs_ingested_total.labels(service_name=log_entry.service_name).inc()
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
