@@ -130,11 +130,25 @@ cd docker
 docker-compose -p isologai up -d
 ```
 
-Confirm all five containers are up:
+Confirm all seven containers are up:
 ```bash
 docker ps
 ```
-Expect `isologai-web-1`, `isologai-redis-1`, `isologai-celery_worker-1`, `isologai-celery_beat-1`, `isologai-db-1`, all `Up`.
+Expect the following containers to be `Up`:
+- `isologai-web-1` (Django app running at `http://localhost:8000`)
+- `isologai-redis-1` (Redis Streams broker)
+- `isologai-celery_worker-1` (ML ingestion worker)
+- `isologai-celery_beat-1` (Ingestion scheduler)
+- `isologai-db-1` (PostgreSQL)
+- `isologai-prometheus-1` (Prometheus scraping metrics at `http://localhost:9090`)
+- `isologai-grafana-1` (Grafana visualization dashboard at `http://localhost:3000`)
+
+### Monitoring & Dashboards
+
+- **Prometheus**: Accessible at `http://localhost:9090`. Under **Status -> Targets**, you should see the `django-app` target status as `UP` (scraping `http://web:8000/api/metrics/` every 10 seconds).
+- **Grafana Dashboard**: Accessible at `http://localhost:3000`.
+  - **Login Credentials**: `admin` / `admin` (you will not be prompted to change this password on first login).
+  - **Dashboard**: A pre-provisioned dashboard named **IsoLogAI Metrics Dashboard** is automatically loaded. It includes panels for Consumer Lag, DLQ Size, Ingestion/Scoring rates, Scoring Latency (p50/p95), and Dead Letter statistics.
 
 ## Verifying the pipeline end to end
 
