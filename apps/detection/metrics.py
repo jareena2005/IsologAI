@@ -26,3 +26,13 @@ consumer_lag = Gauge(
     'consumer_lag',
     'Pending messages in the Redis stream consumer group.',
 )
+
+consumer_dlq_size = Gauge(
+    'consumer_dlq_size',
+    'Current size of the Redis dead-letter stream.',
+)
+
+messages_dead_lettered_total = Counter(
+    'messages_dead_lettered_total',
+    'Total number of messages moved to the dead-letter stream.',
+)
